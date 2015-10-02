@@ -32,14 +32,21 @@ final class DiffusionLookupUserBlurb extends PhabricatorEventListener {
     // When an event you have called listen() for in your register() method
     // occurs, this method will be invoked. You should respond to the event.
 
-    $user = $event->getValue('query');
+    $userCommit = $event->getValue('query');
 
-    $by_blurb = id(new PhabricatorUserProfile())->loadAllWhere(
+    $userProfiles = id(new PhabricatorUserProfile())->loadAllWhere(
       'blurb like %s',
-      '%#'.$user.'#%');
+      '%#'.$userCommit.'#%');
 
-    if (count($by_blurb) >= 1) {
-      $event->setValue('result', reset($by_blurb)->getUserPHID());
+    if (count($userProfiles) >= 1) {
+      foreach ($userProfiles as $userProfile) {
+        $user = id(new PhabricatorUser())->loadOneWhere(
+          'id = %s', $userProfile->getUserPHID());
+        if ($user && !$user->getIsDisabled()) {
+          $event->setValue('result', $user->getPHID());
+          break;
+        }
+      }
     }
   }
 }

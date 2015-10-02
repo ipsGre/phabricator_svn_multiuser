@@ -32,21 +32,31 @@ final class DiffusionLookupUserBlurb extends PhabricatorEventListener {
     // When an event you have called listen() for in your register() method
     // occurs, this method will be invoked. You should respond to the event.
 
-    $log = fopen('/virtual/phabricator/libphlookupuserblurb/test.log','a'); 
+    $log = fopen('/virtual/phabricator/libphlookupuserblurb/histo.log','a'); 
 
-    $user = $event->getValue('query');
+    $userCommit = $event->getValue('query');
 
-    fwrite($log, "User : $user\n");
+    fwrite($log, "---------- ".date("d/m/Y H:i:s"). " ----------\n");
+ 
+    fwrite($log, "UserCommit : $userCommit\n");
 
-    $by_blurb = id(new PhabricatorUserProfile())->loadAllWhere(
+    $userProfiles = id(new PhabricatorUserProfile())->loadAllWhere(
       'blurb like %s',
-      '%#'.$user.'#%');
+      '%#'.$userCommit.'#%');
 
-    if (count($by_blurb) >= 1) {
-      $event->setValue('result', reset($by_blurb)->getUserPHID());
-
-      fwrite($log, 'getBlurb : '.reset($by_blurb)->getBlurb()."\n");
-      fwrite($log, 'getUserPHID : '.reset($by_blurb)->getUserPHID()."\n"); 
+    if (count($userProfiles) >= 1) {
+      foreach ($userProfiles as $userProfile) {
+        $user = id(new PhabricatorUser())->loadOneWhere(
+          'phid = %s', $userProfile->getUserPHID());
+        if ($user && !$user->getIsDisabled()) {
+          $event->setValue('result', $user->getPHID());
+          fwrite($log, 'UserPHID : '.$user->getPHID()."\n");
+          fwrite($log, 'UserName : '.$user->getUserName()."\n");
+          fwrite($log, 'RealName : '.$user->getRealName()."\n");
+          fwrite($log, 'Blurb : '.$userProfile->getBlurb()."\n");
+          break;
+        }
+      }
     }
 
     fwrite($log, 'Result : '.$event->getValue('result')."\n");
